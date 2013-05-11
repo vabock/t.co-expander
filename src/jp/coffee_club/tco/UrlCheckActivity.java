@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.widget.Toast;
+import android.webkit.WebView;
 
 import java.util.regex.Pattern;
 
@@ -36,6 +37,8 @@ public class UrlCheckActivity extends Activity
     /** URL checker */
     private RedirectChecker mRedirectChecker;
 
+    private String mUserAgent;
+
     /**
      * create activity event
      */
@@ -61,6 +64,9 @@ public class UrlCheckActivity extends Activity
             url = expanded_url.toString();
             debuglog("expanded_url: " + url);
         }
+
+        mUserAgent = new WebView(this).getSettings().getUserAgentString();
+        debuglog("user-agent: " + mUserAgent);
 
         onRedirect(url);
     }
@@ -143,7 +149,7 @@ public class UrlCheckActivity extends Activity
         }
 
         // URL redirect
-        mRedirectChecker = new RedirectChecker(url, this);
+        mRedirectChecker = new RedirectChecker(url, mUserAgent, this);
     }
 
     /**

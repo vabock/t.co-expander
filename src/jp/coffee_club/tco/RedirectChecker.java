@@ -5,6 +5,10 @@ import android.os.AsyncTask;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 class ResultParam {
     /** redirect URL */
@@ -25,13 +29,16 @@ public class RedirectChecker extends AsyncTask<String, Void, ResultParam> {
     /** result listener */
     private final OnResultListener mListener;
 
+    private final String mUserAgent;
+    
     /**
      * constructor
      *
      * @param listener
      */
-    public RedirectChecker(String url, OnResultListener listener) {
+    public RedirectChecker(String url, String userAgent, OnResultListener listener) {
         mListener = listener;
+        mUserAgent = userAgent;
         execute(url);
     }
 
@@ -48,6 +55,7 @@ public class RedirectChecker extends AsyncTask<String, Void, ResultParam> {
             HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
             // no auto redirect
             con.setInstanceFollowRedirects(false);
+            con.setRequestProperty("User-Agent", mUserAgent);
 
             // check response code
             int response = con.getResponseCode();
@@ -57,8 +65,29 @@ public class RedirectChecker extends AsyncTask<String, Void, ResultParam> {
                 // redirect to Location: header URL
                 result.url = con.getHeaderField("Location");
                 debuglog("redirect: " + result.url);
-            } else {
+            } else if (response == HttpURLConnection.HTTP_OK) {
+                final String URL = "URL=";
                 // not redirect
+                Document doc = Jsoup.parse(con.getInputStream(), "UTF-8", url);
+                Elements meta = doc.head().getElementsByTag("meta");
+                
+                for (Element elem : meta) {
+                    if ("refresh".equalsIgnoreCase(elem.attr("http-equiv"))) {
+                        String content = elem.attr("content");
+                        int p = content.indexOf(URL);
+                        
+                        if (0 <= p) {
+                            result.url = content.substring(p + URL.length());
+                            debuglog("redirect(meta): " + result.url);
+                            break;
+                        }
+                    }
+                }
+                
+                if (result.url == null) {
+                    result.error = RESULT_NOT_REDIRECT;
+                }
+            } else {
                 result.error = RESULT_NOT_REDIRECT;
             }
 
